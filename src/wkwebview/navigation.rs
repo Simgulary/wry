@@ -72,6 +72,19 @@ pub(crate) fn navigation_policy(
       } else {
         (*handler).call((WKNavigationActionPolicy::Cancel,));
       }
+    } else if action
+      .targetFrame()
+      .is_some_and(|frame| !frame.isMainFrame())
+    {
+      // Subframe (iframe) navigations don't go through the navigation
+      // handler, the same as WebView2 (`NavigationStarting` only fires for
+      // the top-level document; iframes raise `FrameNavigationStarting`,
+      // which wry doesn't hook). Without this, the app's handler sees an
+      // iframe's `src` as if it were a top-level navigation and cancels it
+      // (and may open it in the system browser). What may load in an iframe
+      // is the page's business (CSP `frame-src`, `sandbox`). A nil
+      // `targetFrame` means a new window: that still goes through the handler.
+      (*handler).call((WKNavigationActionPolicy::Allow,));
     } else {
       let function = &this.ivars().navigation_policy_function;
       match function(url.to_string()) {
